@@ -1,22 +1,35 @@
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
 import { Layout } from "../../components/layout";
-import remarkMath from "remark-math";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
-import { LightAsync as SyntaxHighlighter } from "react-syntax-highlighter";
-import rehypeKatex from "rehype-katex";
-import remarkGfm from "remark-gfm";
-import remarkFrontmatter from "remark-frontmatter";
+import InfoNotes from "../../components/InfoNotes";
+// bytemd
+import { Editor, Viewer } from "@bytemd/react";
+import gfm from "@bytemd/plugin-gfm";
+import frontmatter from "@bytemd/plugin-frontmatter";
+import gemoji from "@bytemd/plugin-gemoji";
+import highlight from "@bytemd/plugin-highlight";
+import math from "@bytemd/plugin-math";
+import mermaid from "@bytemd/plugin-mermaid";
 import "katex/dist/katex.min.css";
-import { qtcreatorDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
+
+const plugins = [
+  math(),
+  gfm(),
+  frontmatter(),
+  gemoji(),
+  highlight(),
+  mermaid(),
+];
 
 export default () => {
   const router = useRouter();
   const { id } = router.query;
   const allNotes = useSelector((state) => state.notes.notes);
-  const [note, _setNote] = useState(allNotes.find((n) => n.id == id));
+  const [note] = useState(allNotes.find((n) => n.id == id));
   const [markdown, setMarkdown] = useState("");
+  const [edit, setEdit] = useState(false);
+  const [mode, setMode] = useState("split");
 
   useEffect(() => {
     (async () => {
@@ -25,50 +38,47 @@ export default () => {
     })();
   }, []);
 
+  const handleSave = (e) => {
+    e.preventDefault();
+    const response = window.electronAPI.writeFile(note.path, markdown);
+    response
+      .then(() => console.log("file saved"))
+      .catch((err) => console.error(err));
+  };
+
   return (
     <Layout>
       {note ? (
-        <>
-          <div className="text-center font-bold text-2xl capitalize">
-            {note.name}
-          </div>
-          <div className="text-sm text-center border-b border-gray-500 mb-2 pb-2">
-            <p>{note.description}</p>
-            <p>
-              {note.date} by {note.user}
-            </p>
-          </div>
-          <div className="container mx-auto markdown-body">
-            <ReactMarkdown
-              children={markdown}
-              remarkPlugins={[
-                remarkMath,
-                remarkGfm,
-                [remarkFrontmatter, ["yaml", "toml"]],
-              ]}
-              rehypePlugins={[rehypeKatex]}
-              components={{
-                code({ node, inline, className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || "");
-                  return !inline && match ? (
-                    <SyntaxHighlighter
-                      children={String(children).replace(/\n$/, "")}
-                      style={qtcreatorDark}
-                      language={match[1]}
-                      PreTag="div"
-                      showLineNumbers={true}
-                      {...props}
-                    />
-                  ) : (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-              }}
+        <div>
+          <div className="header relative flex flex-row justify-between content-center items-center border-b border-b-[#262626] py-1 mb-3">
+            <div className="info py-2">
+              <p className="text-xl font-bold capitalize">{note.name}</p>
+              <p className="text-xs">{note.description}</p>
+            </div>
+            <InfoNotes
+              {...note}
+              callback={() => setEdit(!edit)}
+              saveFile={handleSave}
+              mode={mode}
+              setMode={setMode}
             />
           </div>
-        </>
+          <div className="container mx-auto markdown-body">
+            {edit ? (
+              <Editor
+                mode={mode}
+                value={markdown}
+                plugins={plugins}
+                editorConfig={{ lineNumbers: true, autofocus: true }}
+                onChange={(v) => {
+                  setMarkdown(v);
+                }}
+              />
+            ) : (
+              <Viewer value={markdown} plugins={plugins} />
+            )}
+          </div>
+        </div>
       ) : (
         <div className="text-white">Loading...</div>
       )}

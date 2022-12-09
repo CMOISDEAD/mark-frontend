@@ -4,6 +4,7 @@ const notesSlice = createSlice({
   name: "notes",
   initialState: {
     notes: [],
+    todos: [],
   },
   reducers: {
     setNotesData: (state, action) => {
@@ -17,9 +18,25 @@ const notesSlice = createSlice({
         })
       );
     },
+    setTodosData: (state, action) => {
+      state.todos = action.payload;
+      state.todos = state.todos.sort((a, b) => b.items.length - a.items.length);
+    },
+    addTodo: (state, action) => {
+      const [name, new_task] = action.payload;
+      state.todos = [
+        ...state.todos.filter((section) => section.name != name),
+        {
+          name: name,
+          items: new_task,
+        },
+      ];
+      state.todos = state.todos.sort((a, b) => b.items.length - a.items.length);
+    },
   },
 });
 
-export const { setNotesData, sortNotesData } = notesSlice.actions;
+export const { setNotesData, sortNotesData, setTodosData, addTodo } =
+  notesSlice.actions;
 
 export default notesSlice;
